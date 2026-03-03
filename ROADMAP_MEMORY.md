@@ -130,7 +130,7 @@ if existing and tool in existing[0]:
 
 ## 演进路线
 
-### Phase 1：止血 — 降噪与架构归位
+### Phase 1：止血 — 降噪与架构归位 ✅
 
 > 目标：让自动提取不再产生垃圾，让 MemoryPlugin 回归纯数据定位。
 
@@ -214,7 +214,7 @@ else:
 
 > **前置修正**：当前 `Memory.relevance_tags` 在 ORM 中声明为 `Mapped[Dict[str, Any]]`，但实际使用方式始终是 `list[str]`。实现 `query_by_tags` 前需先将类型声明修正为 `Mapped[List[str]]`，并确认 SQLite JSON 查询使用 `json_each()` 做标签匹配。
 
-#### 2.3 Memory 模型扩展
+#### 2.3 Memory 模型扩展 ✅
 
 为 `Memory` ORM 模型新增字段：
 

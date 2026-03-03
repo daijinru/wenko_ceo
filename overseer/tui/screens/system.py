@@ -502,7 +502,7 @@ _PLUGIN_METHODS = {
     "MemoryPlugin": [
         "save(category, content, tags, source_co_id)",
         "retrieve_as_text(query, limit)",
-        "extract_and_save(co_id, llm_response, step_title)",
+        "# extract_and_save → moved to MemoryExtractor (orchestration layer)",
     ],
     "ContextPlugin": [
         "build_prompt(co, memories, available_tools, ...)",

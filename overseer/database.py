@@ -66,6 +66,18 @@ def _migrate_db() -> None:
                     "ALTER TABLE executions ADD COLUMN token_usage JSON"
                 ))
                 conn.commit()
+    if "memories" in inspector.get_table_names():
+        columns = [col["name"] for col in inspector.get_columns("memories")]
+        with engine.connect() as conn:
+            if "updated_at" not in columns:
+                conn.execute(text(
+                    "ALTER TABLE memories ADD COLUMN updated_at DATETIME"
+                ))
+            if "access_count" not in columns:
+                conn.execute(text(
+                    "ALTER TABLE memories ADD COLUMN access_count INTEGER DEFAULT 0"
+                ))
+            conn.commit()
 
 
 def reset_db() -> None:

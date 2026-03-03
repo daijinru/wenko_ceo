@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
-from sqlalchemy import DateTime, ForeignKey, JSON, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from overseer.database import Base
@@ -25,11 +25,17 @@ class Memory(Base):
     source_co_id: Mapped[Optional[str]] = mapped_column(
         String(36), ForeignKey("cognitive_objects.id", ondelete="SET NULL"), nullable=True
     )
-    relevance_tags: Mapped[Dict[str, Any]] = mapped_column(
+    relevance_tags: Mapped[list] = mapped_column(
         JSON, default=list
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True, default=None
+    )
+    access_count: Mapped[int] = mapped_column(
+        Integer, default=0
     )
 
     def __repr__(self) -> str:

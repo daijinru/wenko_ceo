@@ -112,10 +112,6 @@ class MemoryPlugin(Protocol):
 
     def retrieve_as_text(self, query: str, limit: int = 5) -> List[str]: ...
 
-    def extract_and_save(
-        self, co_id: str, llm_response: str, step_title: str = ""
-    ) -> Any: ...
-
 
 @runtime_checkable
 class ContextPlugin(Protocol):

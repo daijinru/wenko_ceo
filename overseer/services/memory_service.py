@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -108,39 +109,20 @@ class MemoryService:
                 scored.append((score, mem))
 
         scored.sort(key=lambda x: x[0], reverse=True)
-        return [mem for _, mem in scored[:limit]]
+        results = [mem for _, mem in scored[:limit]]
+
+        # Increment access_count for retrieved memories.
+        for mem in results:
+            mem.access_count = (mem.access_count or 0) + 1
+        if results:
+            self.session.commit()
+
+        return results
 
     def retrieve_as_text(self, query: str, limit: int = 5) -> List[str]:
         """Retrieve memories and return as text strings for prompt injection."""
         memories = self.retrieve(query, limit)
         return [f"[{m.category}] {m.content}" for m in memories]
-
-    def extract_and_save(
-        self,
-        co_id: str,
-        llm_response: str,
-        step_title: str = "",
-    ) -> Optional[Memory]:
-        """Extract memorable information from an LLM response.
-
-        Simple heuristic: save responses that mention preferences, patterns, or lessons.
-        A more sophisticated approach would use LLM to decide what to remember.
-        """
-        indicators = [
-            "user prefers", "always", "never", "important to note",
-            "lesson learned", "pattern", "remember that",
-            "用户偏好", "总是", "不要", "重要", "经验", "规律",
-        ]
-        response_lower = llm_response.lower()
-        for indicator in indicators:
-            if indicator in response_lower:
-                return self.save(
-                    category="lesson",
-                    content=f"From '{step_title}': {llm_response[:200]}",
-                    tags=[step_title] if step_title else [],
-                    source_co_id=co_id,
-                )
-        return None
 
     def update(
         self,
@@ -159,6 +141,7 @@ class MemoryService:
             mem.content = content
         if tags is not None:
             mem.relevance_tags = tags
+        mem.updated_at = datetime.now(timezone.utc)
         self.session.commit()
         self.session.refresh(mem)
         logger.info("Updated memory %s", memory_id)

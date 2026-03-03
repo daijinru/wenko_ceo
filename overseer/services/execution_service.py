@@ -40,6 +40,7 @@ from overseer.models.cognitive_object import CognitiveObject
 from overseer.models.execution import Execution
 from overseer.services.artifact_service import ArtifactService
 from overseer.services.cognitive_object_service import CognitiveObjectService
+from overseer.services.memory_extractor import MemoryExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,9 @@ class ExecutionService:
         self.context_service = self._registry.get(ContextPlugin)
         self.memory_service = self._registry.get(MemoryPlugin)
         self.planning_service = self._registry.get(PlanPlugin)
+
+        # Memory extraction (orchestration-layer judgment, not a plugin)
+        self._memory_extractor = MemoryExtractor()
 
         # TUI callbacks
         self._on_step_update: Optional[Callable] = None
@@ -838,7 +842,16 @@ class ExecutionService:
                         logger.warning("Reflection failed: %s", e)
 
                 # ── 10. Memory extraction ──
-                memory.extract_and_save(co_id, response, execution.title)
+                extraction = self._memory_extractor.evaluate(
+                    co_id, response, execution.title
+                )
+                if extraction:
+                    memory.save(
+                        category=extraction["category"],
+                        content=extraction["content"],
+                        tags=extraction["tags"],
+                        source_co_id=co_id,
+                    )
 
                 # ── 10.5 Inject approval stats periodically ──
                 if step_number % cfg.reflection.interval == 0:
