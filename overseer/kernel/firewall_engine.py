@@ -297,7 +297,8 @@ class FirewallEngine:
 
         # Auto-escalation settings
         self._auto_escalate_threshold = 3
-        self._hesitation_threshold = 30.0  # seconds
+        self._hesitation_threshold = 30.0   # seconds — lower bound for hesitation
+        self._absence_threshold = 120.0     # seconds — upper bound; beyond this = user was away
 
     @property
     def policy(self) -> PolicyStore:
@@ -310,6 +311,10 @@ class FirewallEngine:
     @property
     def hesitation_threshold(self) -> float:
         return self._hesitation_threshold
+
+    @property
+    def absence_threshold(self) -> float:
+        return self._absence_threshold
 
     def get_policy_summary(self) -> Dict[str, Any]:
         """Return a read-only summary of the current policy state."""
@@ -325,6 +330,7 @@ class FirewallEngine:
             "low_confidence_threshold": self._low_confidence_threshold,
             "auto_escalate_threshold": self._auto_escalate_threshold,
             "hesitation_threshold": self._hesitation_threshold,
+            "absence_threshold": self._absence_threshold,
         }
 
     # ── Core decision parsing ──

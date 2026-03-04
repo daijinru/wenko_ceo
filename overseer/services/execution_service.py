@@ -664,8 +664,10 @@ class ExecutionService:
                             is_approved = human["decision"] != "reject"
                             perception.record_approval(tc.tool, is_approved, _approval_elapsed)
 
-                            # Hesitation detection
-                            if _approval_elapsed >= firewall.hesitation_threshold:
+                            # Hesitation detection (skip if user was simply away)
+                            if (firewall.hesitation_threshold
+                                    <= _approval_elapsed
+                                    < firewall.absence_threshold):
                                 logger.info("User hesitated %.1fs on tool '%s'", _approval_elapsed, tc.tool)
                                 ctx_plugin.merge_step_result(
                                     co, step_number, "perception:hesitation",
@@ -791,8 +793,10 @@ class ExecutionService:
                     human = await gate.wait_for_human()
                     _hitl_elapsed = time.monotonic() - _hitl_start
 
-                    # Hesitation detection for HITL decisions
-                    if _hitl_elapsed >= firewall.hesitation_threshold:
+                    # Hesitation detection for HITL decisions (skip if user was away)
+                    if (firewall.hesitation_threshold
+                            <= _hitl_elapsed
+                            < firewall.absence_threshold):
                         ctx_plugin.merge_step_result(
                             co, step_number, "perception:hesitation",
                             f"System: user took {_hitl_elapsed:.0f}s to respond to HITL request. "
