@@ -39,7 +39,9 @@ class MemoryListItem(ListItem):
         preview = content[:MAX_PREVIEW_LEN] + "…" if len(content) > MAX_PREVIEW_LEN else content
         preview = preview.replace("\n", " ")
         created = self._memory.created_at.strftime("%m-%d %H:%M") if self._memory.created_at else ""
-        yield Label(f"{styled_cat}  [dim]{created}[/dim]\n{preview}", classes="item-label")
+        accesses = self._memory.access_count or 0
+        meta = f"[dim]{created}[/dim]  [dim italic]×{accesses}[/dim italic]" if accesses else f"[dim]{created}[/dim]"
+        yield Label(f"{styled_cat}  {meta}\n{preview}", classes="item-label")
 
 
 class MemoryScreen(Screen):
@@ -115,8 +117,10 @@ class MemoryScreen(Screen):
         cat = mem.category or "unknown"
         styled_cat = CATEGORY_STYLES.get(cat, f"[dim]{cat}[/dim]")
         created = mem.created_at.strftime("%Y-%m-%d %H:%M:%S") if mem.created_at else "—"
+        updated = mem.updated_at.strftime("%Y-%m-%d %H:%M:%S") if mem.updated_at else "—"
         source = mem.source_co_id[:8] if mem.source_co_id else "—"
         tags = ", ".join(mem.relevance_tags) if mem.relevance_tags else "—"
+        accesses = mem.access_count or 0
 
         header.update(
             f"[bold]Memory Detail[/bold]  {styled_cat}  [dim]n: new  e: edit  d: delete  y: copy  q: back[/dim]"
@@ -124,6 +128,8 @@ class MemoryScreen(Screen):
         detail_text = (
             f"[bold underline]Category:[/bold underline]  {styled_cat}\n"
             f"[bold underline]Created:[/bold underline]   {created}\n"
+            f"[bold underline]Updated:[/bold underline]   {updated}\n"
+            f"[bold underline]Accesses:[/bold underline]  {accesses}\n"
             f"[bold underline]Source CO:[/bold underline] {source}\n"
             f"[bold underline]Tags:[/bold underline]      {tags}\n"
             f"\n[bold underline]Content:[/bold underline]\n{mem.content}"
@@ -248,12 +254,16 @@ class MemoryScreen(Screen):
 
         cat = mem.category or "unknown"
         created = mem.created_at.strftime("%Y-%m-%d %H:%M:%S") if mem.created_at else "—"
+        updated = mem.updated_at.strftime("%Y-%m-%d %H:%M:%S") if mem.updated_at else "—"
         source = mem.source_co_id or "—"
         tags = ", ".join(mem.relevance_tags) if mem.relevance_tags else "—"
+        accesses = mem.access_count or 0
 
         text = (
             f"Category:  {cat}\n"
             f"Created:   {created}\n"
+            f"Updated:   {updated}\n"
+            f"Accesses:  {accesses}\n"
             f"Source CO: {source}\n"
             f"Tags:      {tags}\n"
             f"\n{mem.content}"
