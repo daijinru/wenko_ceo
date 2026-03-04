@@ -176,11 +176,11 @@ INDICATOR_MAP = {
 
 ---
 
-### Phase 2：增值 — WorkingMemory 联动与偏好治理
+### Phase 2：增值 — WorkingMemory 联动与偏好治理 ✅
 
 > 目标：让高质量信息不再丢失，让偏好记忆可靠演化。
 
-#### 2.1 WorkingMemory → 长期记忆桥接
+#### 2.1 WorkingMemory → 长期记忆桥接 ✅
 
 在任务完成（`task_complete=True`）时，将 WorkingMemory 中的结构化信息写入长期记忆：
 
@@ -192,7 +192,7 @@ INDICATOR_MAP = {
 
 这些内容已经过 LLM 压缩和结构化，质量远高于 `extract_and_save` 的原始截断。后者在 Phase 3 引入 LLM 判断后可进一步精炼。
 
-#### 2.2 偏好精确去重与更新
+#### 2.2 偏好精确去重与更新 ✅
 
 将 `_persist_preferences` 的去重逻辑从关键词检索改为精确标签查询 + 更新：
 

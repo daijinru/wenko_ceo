@@ -63,6 +63,33 @@ class MemoryService:
             words = text.split()
         return [w for w in words if len(w) >= 2 and w not in MemoryService._STOPWORDS]
 
+    def query_by_tags(
+        self,
+        tags: list[str],
+        category: str | None = None,
+    ) -> List[Memory]:
+        """Return memories that contain ALL of the given tags.
+
+        Uses SQLite json_each() to match against the JSON array stored
+        in ``relevance_tags``.  Optionally filters by category.
+        """
+        from sqlalchemy import text
+
+        q = self.session.query(Memory)
+        if category:
+            q = q.filter(Memory.category == category)
+
+        for i, tag in enumerate(tags):
+            param_name = f"tag_{i}"
+            q = q.filter(
+                text(
+                    f"EXISTS (SELECT 1 FROM json_each(memories.relevance_tags) "
+                    f"WHERE json_each.value = :{param_name})"
+                ).bindparams(**{param_name: tag})
+            )
+
+        return q.order_by(Memory.created_at.desc()).all()
+
     def retrieve(self, query: str, limit: int = 5) -> List[Memory]:
         """Retrieve relevant memories by keyword matching on content and tags.
 

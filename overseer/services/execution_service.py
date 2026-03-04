@@ -232,13 +232,62 @@ class ExecutionService:
                 )
             else:
                 continue
-            existing = memory.retrieve_as_text(f"preference {tool}", limit=1)
-            if existing and tool in existing[0]:
+            existing = memory.query_by_tags(["implicit_preference", tool], category="preference")
+            if existing:
+                memory.update(existing[0].id, content=content)
+            else:
+                memory.save(
+                    category="preference",
+                    content=content,
+                    tags=["implicit_preference", tool],
+                    source_co_id=co_id,
+                )
+
+    # ── Working Memory → Long-term Memory bridge ──
+
+    def _bridge_working_memory(self, co_id: str) -> None:
+        """Persist high-quality WorkingMemory findings into long-term memory.
+
+        On task completion, ``failed_approaches`` are saved as ``lesson``
+        memories and ``key_findings`` as ``domain_knowledge`` memories.
+        """
+        co = self.co_service.get(co_id)
+        if co is None:
+            return
+        wm_data = (co.context or {}).get("working_memory")
+        if not wm_data:
+            return
+
+        from overseer.core.protocols import WorkingMemory
+
+        try:
+            wm = WorkingMemory(**wm_data) if isinstance(wm_data, dict) else wm_data
+        except Exception:
+            logger.debug("Failed to parse working_memory for CO %s", co_id[:8])
+            return
+
+        memory = self._registry.get(MemoryPlugin)
+
+        for approach in wm.failed_approaches:
+            if approach.strip():
+                memory.save(
+                    category="lesson",
+                    content=approach.strip(),
+                    tags=["from_working_memory", "failed_approach"],
+                    source_co_id=co_id,
+                )
+
+        for finding in wm.key_findings:
+            stripped = finding.strip()
+            if not stripped:
+                continue
+            # Skip purely procedural descriptions (very short or generic)
+            if len(stripped) < 15:
                 continue
             memory.save(
-                category="preference",
-                content=content,
-                tags=["implicit_preference", tool],
+                category="domain_knowledge",
+                content=stripped,
+                tags=["from_working_memory", "key_finding"],
                 source_co_id=co_id,
             )
 
@@ -896,6 +945,7 @@ class ExecutionService:
                 # ── 12. Check completion ──
                 if decision.task_complete:
                     self._persist_preferences(co_id)
+                    self._bridge_working_memory(co_id)
                     self._clear_checkpoint(co_id)
                     self.co_service.update_status(co_id, COStatus.COMPLETED)
                     await tools.disconnect()

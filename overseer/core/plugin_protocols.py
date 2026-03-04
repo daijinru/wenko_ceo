@@ -112,6 +112,20 @@ class MemoryPlugin(Protocol):
 
     def retrieve_as_text(self, query: str, limit: int = 5) -> List[str]: ...
 
+    def query_by_tags(
+        self,
+        tags: list[str],
+        category: str | None = None,
+    ) -> List[Any]: ...
+
+    def update(
+        self,
+        memory_id: str,
+        category: str | None = None,
+        content: str | None = None,
+        tags: list[str] | None = None,
+    ) -> Any: ...
+
 
 @runtime_checkable
 class ContextPlugin(Protocol):
