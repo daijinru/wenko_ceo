@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from overseer.core.plugin_protocols import LLMPlugin
+    from overseer.core.plugin_protocols import LLMPlugin, MemoryPlugin
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +161,85 @@ class MemoryExtractor:
                 exc_info=True,
             )
             return rule_result
+
+    async def deduplicate(
+        self,
+        extraction: dict,
+        memory: MemoryPlugin,
+    ) -> Optional[dict]:
+        """Check if extraction duplicates an existing memory; merge if possible.
+
+        Returns:
+            - None → no similar memory found, caller should save as new.
+            - ``{"action": "skip"}`` → duplicate, caller should discard.
+            - ``{"action": "update", "target_id": str, "content": str}``
+              → caller should update existing memory.
+        """
+        if self.llm is None:
+            return None
+
+        # Retrieve top-3 similar existing memories by content keyword match
+        similar = memory.retrieve_as_text(extraction["content"], limit=3)
+        if not similar:
+            return None
+
+        existing_text = "\n".join(
+            f"- [ID: mem_{i}] {text}" for i, text in enumerate(similar)
+        )
+        prompt = (
+            f"新记忆：{extraction['content']}\n\n"
+            f"已有记忆：\n{existing_text}"
+        )
+
+        try:
+            raw = await self.llm.merge_judge(prompt)
+            result = self.llm.parse_merge_judge(raw)
+
+            if result is None:
+                logger.warning("LLM merge_judge parse failed, treating as new")
+                return None
+
+            action = result.get("action")
+            if action == "skip":
+                logger.info("Memory dedup: skipping duplicate")
+                return {"action": "skip"}
+            elif action == "update":
+                # Map synthetic ID back to real memory ID from retrieve results
+                target_idx = result.get("target_id", "mem_0")
+                try:
+                    idx = int(target_idx.replace("mem_", ""))
+                except (ValueError, AttributeError):
+                    idx = 0
+                # We need the real memory objects to get the ID.
+                # retrieve_as_text returns strings; re-retrieve as objects.
+                from overseer.services.memory_service import MemoryService
+                if isinstance(memory, MemoryService):
+                    real_memories = memory.retrieve(extraction["content"], limit=3)
+                    if idx < len(real_memories):
+                        target_memory = real_memories[idx]
+                        merged_content = result.get("content", extraction["content"])
+                        logger.info(
+                            "Memory dedup: merging into #%s: %s",
+                            target_memory.id,
+                            merged_content[:60],
+                        )
+                        return {
+                            "action": "update",
+                            "target_id": target_memory.id,
+                            "content": merged_content,
+                        }
+                # Fallback if can't resolve target
+                return None
+            else:
+                # "new" or unrecognized → treat as new
+                return None
+
+        except Exception:
+            logger.warning(
+                "LLM merge_judge call failed, treating as new",
+                exc_info=True,
+            )
+            return None
 
 
 # ---------------------------------------------------------------------------

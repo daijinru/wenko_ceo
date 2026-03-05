@@ -227,7 +227,7 @@ access_count: Mapped[int] = 0    # 被检索命中的次数（用于后续衰减
 
 ---
 
-### Phase 3：精炼 — LLM 驱动的记忆判断 (进行中)
+### Phase 3：精炼 — LLM 驱动的记忆判断 ✅
 
 > 目标：用 LLM 替代关键词匹配，让 "什么该被记住" 的判断达到人类水平。
 
@@ -260,13 +260,29 @@ LLM 精判（evaluate_with_llm）
 - **降级策略**：LLM 调用超时/失败/解析失败时，fallback 到 Phase 1 的规则引擎结果
 - 关键词未命中时不调用 LLM，零额外开销
 
-#### 3.2 记忆去重与合并
+#### 3.2 记忆去重与合并 ✅
 
-同一主题的记忆可能从不同 CO 中多次产生。引入合并机制：
+已实现：`MemoryExtractor.deduplicate()` 在保存前检索 top-3 相似记忆，用 LLM 判断去重策略。
 
-- 保存前检索 top 3 相似记忆
-- 若相似度超过阈值，用 LLM 将新旧记忆合并为一条更完整的记忆（更新而非新增）
-- 保留 `source_co_id` 指向最新来源
+```
+evaluate_with_llm() 返回 extraction
+    ↓
+deduplicate(extraction, memory)
+    ├─ retrieve_as_text(content, limit=3) 检索相似记忆
+    ├─ 无结果 → 返回 None（正常新增）
+    └─ 有结果 → LLM merge_judge 判断
+        ├─ "skip"  → 完全重复，丢弃
+        ├─ "update" → 主题相同信息互补，合并到已有记忆
+        └─ "new"   → 主题不同，正常新增
+```
+
+实现细节：
+- `LLMService.merge_judge()` 使用 secondary 模型（max_tokens=512, temperature=0.2）
+- `LLMService.parse_merge_judge()` 解析 `` ```merge``` `` fenced JSON block
+- `MEMORY_MERGE_PROMPT` 中文系统提示，指导 LLM 区分 skip/update/new
+- 合并时 LLM 生成融合新旧信息的 content，通过 `memory.update()` 写回
+- **降级策略**：LLM 失败时返回 None（正常新增，不丢数据）
+- ExecutionService Step 10 流程：evaluate_with_llm → deduplicate → save/update/skip
 
 ---
 
@@ -332,10 +348,10 @@ Phase 1  止血                        Phase 2  增值
 └──────────────────────────┘        └──────────────────────────┘
             │                                    │
             ▼                                    ▼
-Phase 3  精炼                        Phase 4  检索升级
+Phase 3  精炼 ✅                      Phase 4  检索升级
 ┌──────────────────────────┐        ┌──────────────────────────┐
 │ 3.1 LLM 记忆评估器 ✅      │        │ 4.1 去除 100 条硬上限 ✅   │
-│ 3.2 记忆去重与合并         │        │ 4.2 时间衰减评分 ✅        │
+│ 3.2 记忆去重与合并 ✅      │        │ 4.2 时间衰减评分 ✅        │
 │                          │        │ 4.3 FTS5 全文搜索          │
 │                          │        │ 4.4 向量检索（长期）        │
 └──────────────────────────┘        └──────────────────────────┘

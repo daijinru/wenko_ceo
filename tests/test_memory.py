@@ -399,3 +399,130 @@ def test_parse_judge():
 
     # No fenced block
     assert svc.parse_judge("plain text") is None
+
+
+# ── Phase 3.2: Memory dedup & merge tests ──
+
+
+def _make_mock_memory(retrieve_texts: list[str]) -> MagicMock:
+    """Create a mock MemoryPlugin that returns given texts from retrieve_as_text."""
+    mock = MagicMock()
+    mock.retrieve_as_text = MagicMock(return_value=retrieve_texts)
+    return mock
+
+
+@pytest.mark.asyncio
+async def test_deduplicate_no_similar():
+    """No similar memories found — returns None (caller saves as new)."""
+    llm = MagicMock()
+    mem = _make_mock_memory([])
+    ext = MemoryExtractor(llm=llm)
+
+    result = await ext.deduplicate(
+        {"category": "lesson", "content": "新知识", "tags": ["test"]},
+        mem,
+    )
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_deduplicate_skip():
+    """LLM judges new memory as duplicate — returns skip."""
+    llm = MagicMock()
+    llm.merge_judge = AsyncMock(return_value='```merge\n{"action": "skip"}\n```')
+    llm.parse_merge_judge = MagicMock(return_value={"action": "skip"})
+    mem = _make_mock_memory(["[lesson] 配置文件必须使用 UTF-8 编码"])
+    ext = MemoryExtractor(llm=llm)
+
+    result = await ext.deduplicate(
+        {"category": "lesson", "content": "配置文件须为 UTF-8", "tags": ["config"]},
+        mem,
+    )
+    assert result is not None
+    assert result["action"] == "skip"
+    llm.merge_judge.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_deduplicate_update(isolated_db):
+    """LLM judges memories as mergeable — returns update with merged content."""
+    svc = MemoryService()
+    existing = svc.save("lesson", "配置文件必须使用 UTF-8 编码", tags=["config"])
+
+    llm = MagicMock()
+    merge_response = {
+        "action": "update",
+        "target_id": "mem_0",
+        "content": "配置文件必须使用 UTF-8 编码，且路径不能包含中文字符",
+    }
+    llm.merge_judge = AsyncMock(
+        return_value=f'```merge\n{json.dumps(merge_response, ensure_ascii=False)}\n```'
+    )
+    llm.parse_merge_judge = MagicMock(return_value=merge_response)
+    ext = MemoryExtractor(llm=llm)
+
+    result = await ext.deduplicate(
+        {"category": "lesson", "content": "配置文件路径不能包含中文字符", "tags": ["config"]},
+        svc,
+    )
+
+    assert result is not None
+    assert result["action"] == "update"
+    assert result["target_id"] == existing.id
+    assert "中文字符" in result["content"]
+
+
+@pytest.mark.asyncio
+async def test_deduplicate_new():
+    """LLM judges memories as different — returns None (new)."""
+    llm = MagicMock()
+    llm.merge_judge = AsyncMock(return_value='```merge\n{"action": "new"}\n```')
+    llm.parse_merge_judge = MagicMock(return_value={"action": "new"})
+    mem = _make_mock_memory(["[preference] 用户偏好深色模式"])
+    ext = MemoryExtractor(llm=llm)
+
+    result = await ext.deduplicate(
+        {"category": "lesson", "content": "API 需要 OAuth2 认证", "tags": ["api"]},
+        mem,
+    )
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_deduplicate_fallback():
+    """LLM merge_judge fails — returns None (save as new, don't lose data)."""
+    llm = MagicMock()
+    llm.merge_judge = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
+    mem = _make_mock_memory(["[lesson] 某条已有记忆"])
+    ext = MemoryExtractor(llm=llm)
+
+    result = await ext.deduplicate(
+        {"category": "lesson", "content": "新记忆内容", "tags": ["test"]},
+        mem,
+    )
+    assert result is None
+
+
+def test_parse_merge_judge():
+    """LLMService.parse_merge_judge extracts fenced merge block correctly."""
+    from overseer.services.llm_service import LLMService
+
+    svc = LLMService()
+
+    # Valid skip
+    response = '判断如下：\n\n```merge\n{"action": "skip"}\n```'
+    result = svc.parse_merge_judge(response)
+    assert result is not None
+    assert result["action"] == "skip"
+
+    # Valid update
+    response = '```merge\n{"action": "update", "target_id": "mem_0", "content": "合并内容"}\n```'
+    result = svc.parse_merge_judge(response)
+    assert result["action"] == "update"
+    assert result["content"] == "合并内容"
+
+    # Invalid JSON
+    assert svc.parse_merge_judge("```merge\nbad\n```") is None
+
+    # No fenced block
+    assert svc.parse_merge_judge("plain text") is None

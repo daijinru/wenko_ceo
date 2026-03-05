@@ -178,6 +178,41 @@ MEMORY_JUDGE_PROMPT = """\
 """
 
 
+MEMORY_MERGE_PROMPT = """\
+你是 Overseer 的记忆去重器。给定一条新记忆和若干已有记忆，判断新记忆是否与某条已有记忆重复或可合并。
+
+请用 ```merge``` 围栏包裹一个 JSON 块。
+
+如果新记忆与某条已有记忆**完全重复**（含义相同，无新信息），输出：
+
+```merge
+{"action": "skip"}
+```
+
+如果新记忆与某条已有记忆**主题相同但信息互补**，输出合并后的内容：
+
+```merge
+{
+  "action": "update",
+  "target_id": "要更新的已有记忆 ID",
+  "content": "合并新旧信息后的完整记忆内容"
+}
+```
+
+如果新记忆与所有已有记忆**主题不同**，输出：
+
+```merge
+{"action": "new"}
+```
+
+规则：
+- 合并时保留双方的关键信息，不丢失细节。
+- content 应简洁自包含，一两句话为佳。
+- 优先合并而非跳过——只有信息完全无增量时才 skip。
+- 全程使用中文。
+"""
+
+
 COMPRESSION_PROMPT = """\
 你是 Overseer 的记忆压缩器。请将以下执行历史压缩为一份简洁的工作记忆摘要。
 
@@ -567,4 +602,27 @@ class LLMService:
                 return json.loads(match.group(1))
             except (json.JSONDecodeError, Exception) as e:
                 logger.warning("Failed to parse judge block: %s", e)
+        return None
+
+    async def merge_judge(self, prompt: str) -> str:
+        """Ask LLM to judge whether a new memory should be merged with existing ones (uses secondary model)."""
+        messages = [
+            {"role": "system", "content": MEMORY_MERGE_PROMPT},
+            {"role": "user", "content": prompt},
+        ]
+        result = await self._request(
+            messages, max_tokens=512, temperature=0.2,
+            endpoint=self._cfg.get_secondary(),
+        )
+        return result.content
+
+    def parse_merge_judge(self, response: str) -> Optional[Dict[str, Any]]:
+        """Extract merge judgment from a ```merge``` fenced block."""
+        pattern = r"```merge\s*\n(.*?)\n```"
+        match = re.search(pattern, response, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(1))
+            except (json.JSONDecodeError, Exception) as e:
+                logger.warning("Failed to parse merge block: %s", e)
         return None

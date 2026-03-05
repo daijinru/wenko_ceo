@@ -900,12 +900,22 @@ class ExecutionService:
                     co_title=co.title,
                 )
                 if extraction:
-                    memory.save(
-                        category=extraction["category"],
-                        content=extraction["content"],
-                        tags=extraction["tags"],
-                        source_co_id=co_id,
+                    merge_result = await self._memory_extractor.deduplicate(
+                        extraction, memory,
                     )
+                    if merge_result is None:
+                        memory.save(
+                            category=extraction["category"],
+                            content=extraction["content"],
+                            tags=extraction["tags"],
+                            source_co_id=co_id,
+                        )
+                    elif merge_result["action"] == "update":
+                        memory.update(
+                            merge_result["target_id"],
+                            content=merge_result["content"],
+                        )
+                    # "skip" → duplicate, discard silently
 
                 # ── 10.5 Inject approval stats periodically ──
                 if step_number % cfg.reflection.interval == 0:
