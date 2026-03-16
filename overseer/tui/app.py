@@ -27,6 +27,7 @@ from overseer.tui.screens.memory import MemoryScreen
 from overseer.tui.screens.artifact_viewer import ArtifactListScreen
 from overseer.tui.screens.tool_panel import ToolPanelScreen
 from overseer.tui.screens.system import SystemScreen, ResetStatsRequest
+from overseer.tui.screens.welcome import WelcomeScreen
 from overseer.tui.theme import FALLOUT_THEME
 from overseer.tui.widgets.co_detail import CODetail
 from overseer.tui.widgets.co_list import COList
@@ -139,9 +140,12 @@ class OverseerApp(App):
         self._pending_tool_confirm: dict[str, dict] = {}  # co_id -> {"tool_name": str, "tool_args": dict}
 
     def on_mount(self) -> None:
-        self.push_screen(HomeScreen())
-        self._recover_stale_cos()
-        self.call_after_refresh(self._refresh_co_list)
+        def on_welcome_dismiss(result) -> None:
+            self.push_screen(HomeScreen())
+            self._recover_stale_cos()
+            self.call_after_refresh(self._refresh_co_list)
+
+        self.push_screen(WelcomeScreen(), callback=on_welcome_dismiss)
 
     def _recover_stale_cos(self) -> None:
         """Recover COs from a previous session: fix stale RUNNING status,

@@ -5,6 +5,29 @@ Screen {
     background: $background;
 }
 
+/* ── Welcome screen ── */
+WelcomeScreen {
+    background: $background;
+    align: center middle;
+}
+
+#welcome-container {
+    width: auto;
+    height: auto;
+    max-height: 100%;
+}
+
+#welcome-art {
+    color: $primary;
+    width: auto;
+}
+
+#welcome-boot {
+    color: $primary;
+    width: auto;
+    height: auto;
+}
+
 /* ── Header / Footer ── */
 Header {
     dock: top;

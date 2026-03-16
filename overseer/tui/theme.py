@@ -34,3 +34,40 @@ FALLOUT_BANNER = (
     "[dim]  ROBCO INDUSTRIES (TM) TERMLINK PROTOCOL[/dim]\n"
     "[dim]══════════════════════════════════════════════[/dim]"
 )
+
+WELCOME_HEADER = (
+    "[dim]═══════════════════════════════════════════════════════════════[/dim]\n"
+    "\n"
+    "\n"
+    "[bold]"
+    "         ██████  ██    ██ ███████ ██████  ███████ ███████ ███████ ██████\n"
+    "        ██    ██ ██    ██ ██      ██   ██ ██      ██      ██      ██   ██\n"
+    "        ██    ██ ██    ██ █████   ██████  ███████ █████   █████   ██████\n"
+    "        ██    ██  ██  ██  ██      ██   ██      ██ ██      ██      ██   ██\n"
+    "         ██████    ████   ███████ ██   ██ ███████ ███████ ███████ ██   ██\n"
+    "[/bold]\n"
+    "\n"
+    "                   ╔══════════════════════════════════╗\n"
+    "                   ║   AI  ACTION  FIREWALL  v0.1.0   ║\n"
+    "                   ╚══════════════════════════════════╝\n"
+    "\n"
+    "[dim]          ROBCO INDUSTRIES (TM) TERMLINK PROTOCOL[/dim]\n"
+    "[dim]          COPYRIGHT 2075-2077 ROBCO INDUSTRIES[/dim]\n"
+    "\n"
+    "[dim]          ─────────────────────────────────────────[/dim]\n"
+)
+
+# Boot sequence lines shown one-by-one with a delay.
+WELCOME_BOOT_LINES = [
+    "",
+    "[dim]          >  INITIALIZING SYSTEM ...[/dim]",
+    "[dim]          >  COGNITIVE KERNEL ............ [/dim][bold][  OK  ][/bold]",
+    "[dim]          >  FIREWALL ENGINE ............. [/dim][bold][  OK  ][/bold]",
+    "[dim]          >  PERCEPTION BUS .............. [/dim][bold][  OK  ][/bold]",
+    "[dim]          >  MCP TOOL REGISTRY ........... [/dim][bold][  OK  ][/bold]",
+    "[dim]          >  HUMAN GATE PROTOCOL ......... [/dim][bold][  OK  ][/bold]",
+    "",
+    "[dim]═══════════════════════════════════════════════════════════════[/dim]",
+    "",
+    "[bold]          \\[ PRESS ENTER TO CONTINUE ][/bold]",
+]
